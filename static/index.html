@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WanderMate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        [x-cloak] { display: none !important; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-hover { transition: all 0.2s; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen" x-data="wandermate()" x-cloak>
+
+    <!-- Navbar -->
+    <nav class="gradient-bg text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2 cursor-pointer" @click="page='home'">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span class="text-xl font-bold">WanderMate</span>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <!-- Dil gostergesi -->
+                <div class="relative" x-data="{ langOpen: false }">
+                    <button @click="langOpen = !langOpen" class="flex items-center gap-1 bg-white/20 rounded-lg px-2 py-1 text-xs hover:bg-white/30">
+                        <span x-text="getLangFlag()"></span>
+                        <span x-text="getLangName()" class="hidden sm:inline"></span>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="langOpen" @click.away="langOpen=false" x-transition class="absolute right-0 mt-2 bg-white rounded-xl shadow-xl overflow-hidden z-50 min-w-[200px]">
+                        <div class="px-3 py-2 bg-purple-50 text-xs font-bold text-purple-600 uppercase">Turk Lehceleri</div>
+                        <template x-for="(data, code) in turkLehceleri" :key="code">
+                            <button @click="setLang(code); langOpen=false" class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-purple-50 flex items-center gap-2"
+                                :class="lang === code ? 'bg-purple-50 font-bold' : ''">
+                                <span x-text="data.flag"></span>
+                                <span x-text="data.name"></span>
+                            </button>
+                        </template>
+                        <div class="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-500 uppercase border-t">Diger</div>
+                        <template x-for="(data, code) in digerDiller" :key="code">
+                            <button @click="setLang(code); langOpen=false" class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-purple-50 flex items-center gap-2"
+                                :class="lang === code ? 'bg-purple-50 font-bold' : ''">
+                                <span x-text="data.flag"></span>
+                                <span x-text="data.name"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Giris yapmis -->
+                <template x-if="user">
+                    <div class="flex items-center gap-4">
+                        <button @click="page='explore'" class="hover:text-purple-200 text-sm font-medium"
+                            :class="page==='explore' || page==='explore-country' || page==='explore-city' ? 'text-white underline' : ''" x-text="t('explore')"></button>
+                        <button @click="page='trips'" class="hover:text-purple-200 text-sm font-medium"
+                            :class="page==='trips' ? 'text-white underline' : ''" x-text="t('trips')"></button>
+                        <button @click="page='messages'" class="hover:text-purple-200 text-sm font-medium relative"
+                            :class="page==='messages' ? 'text-white underline' : ''">
+                            <span x-text="t('messages')"></span>
+                            <span x-show="unreadTotal > 0" class="absolute -top-1 -right-3 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center" x-text="unreadTotal"></span>
+                        </button>
+                        <button @click="page='profile'" class="hover:text-purple-200 text-sm font-medium"
+                            :class="page==='profile' ? 'text-white underline' : ''" x-text="t('profile')"></button>
+                        <div class="flex items-center gap-2 ml-2 bg-white/20 rounded-full px-3 py-1">
+                            <div class="w-7 h-7 rounded-full bg-white/30 flex items-center justify-center text-sm font-bold" x-text="user.full_name[0]"></div>
+                            <span class="text-sm" x-text="user.full_name.split(' ')[0]"></span>
+                        </div>
+                        <button @click="logout()" class="text-sm hover:text-red-200" x-text="t('logout')"></button>
+                    </div>
+                </template>
+
+                <!-- Giris yapmamis -->
+                <template x-if="!user">
+                    <div class="flex items-center gap-3">
+                        <button @click="page='explore'" class="hover:text-purple-200 text-sm font-medium"
+                            :class="page==='explore' || page==='explore-country' || page==='explore-city' ? 'text-white underline' : ''" x-text="t('explore')"></button>
+                        <button @click="page='login'" class="px-4 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-sm font-medium" x-text="t('login')"></button>
+                        <button @click="page='register'" class="px-4 py-1.5 rounded-lg bg-white text-purple-700 hover:bg-purple-50 text-sm font-bold" x-text="t('register')"></button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto px-4 py-6">
+
+        <!-- TOAST -->
+        <div x-show="toast" x-transition class="fixed top-20 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-xl z-50" x-text="toastMsg"></div>
+
+        <!-- ========== ANASAYFA ========== -->
+        <template x-if="page === 'home'">
+            <div>
+                <div class="text-center py-16">
+                    <h1 class="text-5xl font-bold text-gray-800 mb-4"><span x-text="t('hero_title_1')"></span> <span class="text-purple-600" x-text="t('hero_title_2')"></span></h1>
+                    <p class="text-xl text-gray-500 mb-8 max-w-2xl mx-auto" x-text="t('hero_desc')"></p>
+                    <div class="flex gap-4 justify-center">
+                        <button @click="user ? page='create-trip' : page='register'" class="px-8 py-3 gradient-bg text-white rounded-xl font-bold text-lg hover:opacity-90 shadow-lg" x-text="t('plan_trip')"></button>
+                        <button @click="page='trips'" class="px-8 py-3 bg-white text-purple-600 border-2 border-purple-600 rounded-xl font-bold text-lg hover:bg-purple-50" x-text="t('see_trips')"></button>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-8 py-12">
+                    <div class="text-center p-6 bg-white rounded-2xl shadow-sm card-hover">
+                        <div class="w-16 h-16 mx-auto mb-4 gradient-bg rounded-2xl flex items-center justify-center">
+                            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2" x-text="t('step1_title')"></h3>
+                        <p class="text-gray-500" x-text="t('step1_desc')"></p>
+                    </div>
+                    <div class="text-center p-6 bg-white rounded-2xl shadow-sm card-hover">
+                        <div class="w-16 h-16 mx-auto mb-4 bg-green-500 rounded-2xl flex items-center justify-center">
+                            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2" x-text="t('step2_title')"></h3>
+                        <p class="text-gray-500" x-text="t('step2_desc')"></p>
+                    </div>
+                    <div class="text-center p-6 bg-white rounded-2xl shadow-sm card-hover">
+                        <div class="w-16 h-16 mx-auto mb-4 bg-orange-500 rounded-2xl flex items-center justify-center">
+                            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2" x-text="t('step3_title')"></h3>
+                        <p class="text-gray-500" x-text="t('step3_desc')"></p>
+                    </div>
+                </div>
+
+                <div class="py-8">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6" x-text="t('open_trips')"></h2>
+                    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" x-show="homeTrips.length">
+                        <template x-for="trip in homeTrips" :key="trip.id">
+                            <div class="bg-white p-5 rounded-xl shadow-sm card-hover cursor-pointer" @click="viewTrip(trip.id)">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <div class="w-10 h-10 rounded-full gradient-bg flex items-center justify-center text-white font-bold" x-text="trip.traveler_name[0] || '?'"></div>
+                                    <div>
+                                        <div class="font-medium text-gray-800" x-text="trip.traveler_name"></div>
+                                        <div class="text-xs text-gray-400" x-text="trip.traveler_country"></div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1 text-purple-600 font-bold mb-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+                                    <span x-text="trip.destination_city + ', ' + trip.destination_country"></span>
+                                </div>
+                                <div class="text-sm text-gray-500 mb-2" x-text="formatDate(trip.arrival_date) + ' → ' + formatDate(trip.departure_date)"></div>
+                                <p class="text-sm text-gray-600 line-clamp-2" x-text="trip.description"></p>
+                                <div class="mt-3 flex items-center justify-between">
+                                    <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full" x-text="trip.match_count + ' ' + t('applications')"></span>
+                                    <span class="text-xs text-green-600 font-medium" x-text="t('open')"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <div x-show="!homeTrips.length" class="text-center py-12 text-gray-400" x-text="t('no_trips')"></div>
+                </div>
+            </div>
+        </template>
+
+        <!-- ========== GIRIS ========== -->
+        <template x-if="page === 'login'">
+            <div class="max-w-md mx-auto py-16">
+                <div class="bg-white p-8 rounded-2xl shadow-sm">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center" x-text="t('login_title')"></h2>
+
+                    <!-- Google & Apple Butonlari -->
+                    <div class="space-y-3 mb-6">
+                        <button @click="showToast('Google hesabi yaklasimda...')" class="w-full py-3 border-2 border-gray-200 rounded-xl font-medium hover:bg-gray-50 flex items-center justify-center gap-3 text-gray-700">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                            Google ile Giris Yap
+                        </button>
+                        <button @click="showToast('Apple hesabi yaklasimda...')" class="w-full py-3 bg-black text-white rounded-xl font-medium hover:bg-gray-900 flex items-center justify-center gap-3">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+                            Apple ile Giris Yap
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                        <span class="text-sm text-gray-400">veya email ile</span>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <input x-model="authForm.email" type="email" :placeholder="t('email')" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        <input x-model="authForm.password" type="password" :placeholder="t('password_login')" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        <p x-show="authError" class="text-red-500 text-sm" x-text="authError"></p>
+                        <button @click="login()" class="w-full py-3 gradient-bg text-white rounded-xl font-bold hover:opacity-90" x-text="t('login')"></button>
+                        <p class="text-center text-sm text-gray-500"><span x-text="t('no_account')"></span> <a @click="page='register'" class="text-purple-600 font-medium cursor-pointer" x-text="t('register')"></a></p>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- ========== KAYIT ========== -->
+        <template x-if="page === 'register'">
+            <div class="max-w-md mx-auto py-16">
+                <div class="bg-white p-8 rounded-2xl shadow-sm">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center" x-text="t('register_title')"></h2>
+
+                    <!-- Google & Apple Butonlari -->
+                    <div class="space-y-3 mb-6">
+                        <button @click="showToast('Google hesabi yaklasimda...')" class="w-full py-3 border-2 border-gray-200 rounded-xl font-medium hover:bg-gray-50 flex items-center justify-center gap-3 text-gray-700">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                            Google ile Kayit Ol
+                        </button>
+                        <button @click="showToast('Apple hesabi yaklasimda...')" class="w-full py-3 bg-black text-white rounded-xl font-medium hover:bg-gray-900 flex items-center justify-center gap-3">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+                            Apple ile Kayit Ol
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                        <span class="text-sm text-gray-400">veya email ile</span>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <input x-model="authForm.full_name" type="text" :placeholder="t('full_name')" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        <input x-model="authForm.email" type="email" :placeholder="t('email')" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        <input x-model="authForm.password" type="password" :placeholder="t('password')" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        <select x-model="authForm.country" @change="authForm.city=''; autoLangFromCountry(authForm.country)" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white">
+                            <option value="" x-text="t('select_country')"></option>
+                            <template x-for="c in countries" :key="c">
+                                <option :value="c" x-text="c"></option>
+                            </template>
+                        </select>
+                        <select x-model="authForm.city" :disabled="!authForm.country" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white disabled:opacity-50">
+                            <option value="" x-text="t('select_city')"></option>
+                            <template x-for="c in getCities(authForm.country)" :key="c">
+                                <option :value="c" x-text="c"></option>
+                            </template>
+                        </select>
+                        <!-- Konustugu Diller -->
+                        <div>
+                            <label class="text-sm font-medium text-gray-600 block mb-2">Konustugum Diller</label>
+                            <div class="flex flex-wrap gap-2">
+                                <template x-for="lang in spokenLanguages" :key="lang">
+                                    <button type="button" @click="toggleLang(authForm.languages, lang)"
+                                        class="px-3 py-1.5 rounded-full text-xs border transition-all"
+                                        :class="authForm.languages.includes(lang) ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'"
+                                        x-text="lang"></button>
+                                </template>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1" x-show="authForm.languages.length" x-text="authForm.languages.join(', ')"></p>
+                        </div>
+                        <p x-show="authError" class="text-red-500 text-sm" x-text="authError"></p>
+                        <button @click="register()" class="w-full py-3 gradient-bg text-white rounded-xl font-bold hover:opacity-90" x-text="t('register')"></button>
+                        <p class="text-center text-sm text-gray-500"><span x-text="t('has_account')"></span> <a @click="page='login'" class="text-purple-600 font-medium cursor-pointer" x-text="t('login')"></a></p>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- ========== EMAIL DOGRULAMA ========== -->
+        <template x-if="page === 'verify'">
+            <div class="max-w-md mx-auto py-16">
+                <div class="bg-white p-8 rounded-2xl shadow-sm text-center">
+                    <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Email Dogrulama</h2>
+                    <p class="text-gray-500 mb-2">Email adresinize gonderilen 6 haneli kodu girin</p>
+                    <p class="text-sm text-gray-400 mb-6" x-text="verifyEmail"></p>
+
+                    <!-- MVP: Kodu goster (prod'da kaldirilacak) -->
+                    <div x-show="verifyHint" class="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4">
+                        <p class="text-xs text-yellow-600 font-medium">Test Modu — Dogrulama Kodunuz:</p>
+                        <p class="text-2xl font-bold text-yellow-700 tracking-widest" x-text="verifyHint"></p>
+                    </div>
+
+                    <input x-model="verifyCode" type="text" maxlength="6" placeholder="_ _ _ _ _ _"
+                        class="w-full px-4 py-4 border-2 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none text-center text-2xl tracking-widest font-bold mb-4">
+
+                    <p x-show="verifyError" class="text-red-500 text-sm mb-3" x-text="verifyError"></p>
+
+                    <button @click="verifyAccount()" class="w-full py-3 gradient-bg text-white rounded-xl font-bold hover:opacity-90 mb-3">Dogrula</button>
+
+                    <button @click="resendCode()" class="text-sm text-purple-600 hover:underline">Kodu tekrar gonder</button>
+                </div>
+            </div>
+        </template>
+
+        <!-- ========== GEZILER ========== -->
+        <template x-if="page === 'trips'">
+            <div>
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800" x-text="t('open_trips')"></h2>
+                    <button x-show="user" @click="page='create-trip'" class="px-4 py-2 gradient-bg text-white rounded-xl font-medium hover:opacity-90" x-text="t('new_trip')"></button>
+                </div>
+                <div class="flex gap-3 mb-6">
+                    <input x-model="tripFilter.country" @input.debounce.500ms="loadTrips()" :placeholder="t('filter_country')" class="px-4 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                    <input x-model="tripFilter.city" @input.debounce.500ms="loadTrips()" :placeholder="t('filter_city')" class="px-4 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <template x-for="trip in tripList" :key="trip.id">
+                        <div class="bg-white p-5 rounded-xl shadow-sm card-hover cursor-pointer" @click="viewTrip(trip.id)">
+                            <div class="flex items-center gap-2 mb-3">
+                                <div class="w-10 h-10 rounded-full gradient-bg flex items-center justify-center text-white font-bold" x-text="trip.traveler_name[0] || '?'"></div>
+                                <div>
+                                    <div class="font-medium text-gray-800" x-text="trip.traveler_name"></div>
+                                    <div class="text-xs text-gray-400" x-text="trip.traveler_country"></div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 text-purple-600 font-bold mb-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+                                <span x-text="trip.destination_city + ', ' + trip.destination_country"></span>
+                            </div>
+                            <div class="text-sm text-gray-500 mb-2" x-text="formatDate(trip.arrival_date) + ' → ' + formatDate(trip.departure_date)"></div>
+                            <p class="text-sm text-gray-600 line-clamp-2" x-text="trip.description"></p>
+                            <div class="mt-3 flex items-center justify-between">
+                                <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full" x-text="trip.match_count + ' ' + t('applications')"></span>
+                                <span class="text-xs text-green-600 font-medium" x-text="t('open')"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <div x-show="!tripList.length" class="text-center py-16 text-gray-400" x-text="t('no_filter_trips')"></div>
+            </div>
+        </template>
+
+        <!-- ========== GEZI OLUSTUR ========== -->
+        <template x-if="page === 'create-trip'">
+            <div class="max-w-lg mx-auto py-8">
+                <div class="bg-white p-8 rounded-2xl shadow-sm">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6" x-text="t('create_trip')"></h2>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <select x-model="tripForm.destination_country" @change="tripForm.destination_city=''" class="px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white">
+                                <option value="" x-text="t('dest_country')"></option>
+                                <template x-for="c in countries" :key="c">
+                                    <option :value="c" x-text="c"></option>
+                                </template>
+                            </select>
+                            <select x-model="tripForm.destination_city" :disabled="!tripForm.destination_country" class="px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white disabled:opacity-50">
+                                <option value="" x-text="t('dest_city')"></option>
+                                <template x-for="c in getCities(tripForm.destination_country)" :key="c">
+                                    <option :value="c" x-text="c"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-sm text-gray-500 mb-1 block" x-text="t('arrival')"></label>
+                                <input x-model="tripForm.arrival_date" type="date" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="text-sm text-gray-500 mb-1 block" x-text="t('departure')"></label>
+                                <input x-model="tripForm.departure_date" type="date" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                            </div>
+                        </div>
+                        <textarea x-model="tripForm.description" rows="3" :placeholder="t('trip_desc_placeholder')" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none"></textarea>
+                        <input x-model="tripForm.interests" type="text" :placeholder="t('interests_placeholder')" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        <p x-show="tripError" class="text-red-500 text-sm" x-text="tripError"></p>
+                        <div class="flex gap-3">
+                            <button @click="page='trips'" class="flex-1 py-3 border-2 border-gray-300 text-gray-600 rounded-xl font-medium hover:bg-gray-50" x-text="t('cancel')"></button>
+                            <button @click="createTrip()" class="flex-1 py-3 gradient-bg text-white rounded-xl font-bold hover:opacity-90" x-text="t('create')"></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- ========== GEZI DETAY ========== -->
+        <template x-if="page === 'trip-detail' && currentTrip">
+            <div class="max-w-3xl mx-auto py-8">
+                <button @click="page='trips'" class="text-purple-600 mb-4 hover:underline">&larr; <span x-text="t('back_trips')"></span></button>
+                <div class="bg-white p-8 rounded-2xl shadow-sm mb-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-14 h-14 rounded-full gradient-bg flex items-center justify-center text-white text-xl font-bold" x-text="currentTrip.traveler_name[0]"></div>
+                        <div>
+                            <div class="text-xl font-bold text-gray-800" x-text="currentTrip.traveler_name"></div>
+                            <div class="text-sm text-gray-400" x-text="currentTrip.traveler_country"></div>
+                        </div>
+                    </div>
+                    <div x-show="currentTrip.traveler_languages" class="flex flex-wrap gap-1 mb-2">
+                        <span class="text-xs text-gray-500 mr-1">🗣</span>
+                        <template x-for="l in currentTrip.traveler_languages.split(',')" :key="l">
+                            <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full" x-text="l.trim()"></span>
+                        </template>
+                    </div>
+                    <div class="text-2xl font-bold text-purple-600 mb-2" x-text="currentTrip.destination_city + ', ' + currentTrip.destination_country"></div>
+                    <div class="text-gray-500 mb-4" x-text="formatDate(currentTrip.arrival_date) + ' → ' + formatDate(currentTrip.departure_date)"></div>
+                    <p class="text-gray-700 mb-4" x-text="currentTrip.description"></p>
+                    <div x-show="currentTrip.interests" class="flex gap-2 flex-wrap">
+                        <template x-for="tag in currentTrip.interests.split(',')" :key="tag">
+                            <span class="bg-purple-100 text-purple-700 text-xs px-3 py-1 rounded-full" x-text="tag.trim()"></span>
+                        </template>
+                    </div>
+                </div>
+
+                <div x-show="user && currentTrip.traveler_id !== user.id && currentTrip.status === 'open'" class="bg-white p-6 rounded-2xl shadow-sm mb-6">
+                    <h3 class="font-bold text-gray-800 mb-3" x-text="t('apply_host')"></h3>
+                    <textarea x-model="matchMessage" rows="2" :placeholder="t('apply_msg_placeholder')" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none mb-3"></textarea>
+                    <button @click="applyAsHost()" class="px-6 py-2 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600" x-text="t('apply')"></button>
+                </div>
+
+                <div x-show="user && currentTrip.traveler_id === user.id">
+                    <h3 class="font-bold text-gray-800 mb-4"><span x-text="t('applications_title')"></span> (<span x-text="tripMatches.length"></span>)</h3>
+                    <template x-for="m in tripMatches" :key="m.id">
+                        <div class="bg-white p-5 rounded-xl shadow-sm mb-3 flex items-center justify-between">
+                            <div>
+                                <div class="font-medium text-gray-800" x-text="m.host_name"></div>
+                                <div class="text-sm text-gray-400" x-text="m.host_city"></div>
+                                <div class="text-sm text-yellow-600" x-text="'★ ' + m.host_rating.toFixed(1)"></div>
+                                <div x-show="m.host_languages" class="flex flex-wrap gap-1 mt-1">
+                                    <span class="text-xs text-gray-500">🗣</span>
+                                    <template x-for="l in (m.host_languages || '').split(',')" :key="l">
+                                        <span x-show="l.trim()" class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full" x-text="l.trim()"></span>
+                                    </template>
+                                </div>
+                                <p class="text-sm text-gray-600 mt-1" x-text="m.message"></p>
+                            </div>
+                            <div class="flex gap-2" x-show="m.status === 'pending'">
+                                <button @click="acceptMatch(m.id)" class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600" x-text="t('accept')"></button>
+                                <button @click="rejectMatch(m.id)" class="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600" x-text="t('reject')"></button>
+                            </div>
+                            <span x-show="m.status !== 'pending'" class="text-sm font-medium"
+                                :class="m.status === 'accepted' ? 'text-green-600' : 'text-red-600'"
+                                x-text="m.status === 'accepted' ? t('accepted') : t('rejected')"></span>
+                        </div>
+                    </template>
+                    <div x-show="!tripMatches.length" class="text-center py-8 text-gray-400" x-text="t('no_applications')"></div>
+                </div>
+            </div>
+        </template>
+
+        <!-- ========== MESAJLAR ========== -->
+        <template x-if="page === 'messages'">
+            <div class="max-w-3xl mx-auto py-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6" x-text="t('messages_title')"></h2>
+                <div class="flex gap-4 h-[500px]">
+                    <div class="w-1/3 bg-white rounded-2xl shadow-sm overflow-y-auto">
+                        <template x-for="c in conversations" :key="c.user_id">
+                            <div @click="openChat(c.user_id)" class="p-4 border-b cursor-pointer hover:bg-purple-50"
+                                :class="chatWith === c.user_id ? 'bg-purple-50' : ''">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-gray-800 text-sm" x-text="c.user_name"></span>
+                                    <span x-show="c.unread_count" class="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" x-text="c.unread_count"></span>
+                                </div>
+                                <p class="text-xs text-gray-400 truncate mt-1" x-text="c.last_message"></p>
+                            </div>
+                        </template>
+                        <div x-show="!conversations.length" class="text-center py-8 text-gray-400 text-sm" x-text="t('no_messages')"></div>
+                    </div>
+                    <div class="flex-1 bg-white rounded-2xl shadow-sm flex flex-col">
+                        <template x-if="chatWith">
+                            <div class="flex flex-col h-full">
+                                <div class="p-4 border-b font-medium text-gray-800" x-text="chatPartnerName"></div>
+                                <div class="flex-1 overflow-y-auto p-4 space-y-3" id="chatBox">
+                                    <template x-for="msg in chatMessages" :key="msg.id">
+                                        <div :class="msg.sender_id === user.id ? 'text-right' : 'text-left'">
+                                            <div class="inline-block px-4 py-2 rounded-2xl max-w-xs text-sm"
+                                                :class="msg.sender_id === user.id ? 'gradient-bg text-white' : 'bg-gray-100 text-gray-800'"
+                                                x-text="msg.content"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="p-4 border-t flex gap-2">
+                                    <input x-model="newMessage" @keyup.enter="sendMessage()" :placeholder="t('type_message')" class="flex-1 px-4 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                                    <button @click="sendMessage()" class="px-4 py-2 gradient-bg text-white rounded-xl font-medium hover:opacity-90" x-text="t('send')"></button>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="!chatWith">
+                            <div class="flex items-center justify-center h-full text-gray-400" x-text="t('select_convo')"></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- ========== KESFET - ULKELER ========== -->
+        <template x-if="page === 'explore'">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2" x-text="t('explore_title')"></h2>
+                <p class="text-gray-500 mb-6" x-text="t('explore_desc')"></p>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <template x-for="(data, country) in placesData" :key="country">
+                        <div @click="exploreCountry(country)" class="cursor-pointer rounded-2xl overflow-hidden shadow-sm card-hover bg-white">
+                            <div class="h-48 bg-cover bg-center relative" :style="'background-image: url(' + data.image + ')'">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                                <div class="absolute bottom-0 left-0 p-4">
+                                    <h3 class="text-xl font-bold text-white" x-text="country"></h3>
+                                    <p class="text-sm text-white/80" x-text="Object.keys(data.cities).length + ' ' + t('city_count')"></p>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-sm text-gray-600" x-text="data.description"></p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- ========== KESFET - SEHIRLER ========== -->
+        <template x-if="page === 'explore-country' && exploreSelected.country">
+            <div>
+                <button @click="page='explore'" class="text-purple-600 mb-4 hover:underline">&larr; <span x-text="t('all_countries')"></span></button>
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800" x-text="exploreSelected.country"></h2>
+                    <p class="text-gray-500" x-text="placesData[exploreSelected.country]?.description"></p>
+                </div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <template x-for="(cityData, cityName) in placesData[exploreSelected.country]?.cities || {}" :key="cityName">
+                        <div @click="exploreCity(cityName)" class="cursor-pointer rounded-2xl overflow-hidden shadow-sm card-hover bg-white">
+                            <div class="h-44 bg-cover bg-center relative" :style="'background-image: url(' + cityData.image + ')'">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                                <div class="absolute bottom-0 left-0 p-4">
+                                    <h3 class="text-xl font-bold text-white" x-text="cityName"></h3>
+                                    <p class="text-sm text-white/80" x-text="cityData.places.length + ' ' + t('place_count')"></p>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-sm text-gray-600" x-text="cityData.description"></p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- ========== KESFET - GEZILECEK YERLER ========== -->
+        <template x-if="page === 'explore-city' && exploreSelected.city">
+            <div>
+                <button @click="page='explore-country'" class="text-purple-600 mb-4 hover:underline">&larr; <span x-text="exploreSelected.country"></span></button>
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800" x-text="exploreSelected.city + ', ' + exploreSelected.country"></h2>
+                    <p class="text-gray-500" x-text="placesData[exploreSelected.country]?.cities[exploreSelected.city]?.description"></p>
+                </div>
+                <div class="h-64 rounded-2xl bg-cover bg-center mb-8 relative overflow-hidden"
+                    :style="'background-image: url(' + (placesData[exploreSelected.country]?.cities[exploreSelected.city]?.image || '') + ')'">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                </div>
+                <h3 class="text-lg font-bold text-gray-800 mb-4" x-text="t('places_title')"></h3>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <template x-for="(place, idx) in (placesData[exploreSelected.country]?.cities[exploreSelected.city]?.places || [])" :key="idx">
+                        <div class="bg-white rounded-2xl overflow-hidden shadow-sm card-hover">
+                            <div class="h-48 bg-cover bg-center" :style="'background-image: url(' + place.image + ')'"></div>
+                            <div class="p-5">
+                                <h4 class="text-lg font-bold text-gray-800 mb-1" x-text="place.name"></h4>
+                                <p class="text-sm text-gray-600" x-text="place.description"></p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <div class="mt-8 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-6 text-center text-white">
+                    <h3 class="text-xl font-bold mb-2" x-text="exploreSelected.city + ' ' + t('city_waiting')"></h3>
+                    <p class="text-white/80 mb-4" x-text="t('city_cta')"></p>
+                    <button @click="startTripFromExplore()" class="px-8 py-3 bg-white text-purple-700 rounded-xl font-bold hover:bg-purple-50" x-text="t('plan_this_city')"></button>
+                </div>
+            </div>
+        </template>
+
+        <!-- ========== PROFIL ========== -->
+        <template x-if="page === 'profile' && user">
+            <div class="max-w-2xl mx-auto py-8">
+                <div class="bg-white p-8 rounded-2xl shadow-sm">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-20 h-20 rounded-full gradient-bg flex items-center justify-center text-white text-3xl font-bold" x-text="user.full_name[0]"></div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-800" x-text="user.full_name"></h2>
+                            <p class="text-gray-500" x-text="user.city + ', ' + user.country"></p>
+                            <div class="flex items-center gap-3 mt-1">
+                                <span class="text-yellow-600 text-sm" x-text="'★ ' + user.rating.toFixed(1)"></span>
+                                <span class="text-gray-400 text-sm" x-text="user.trips_count + ' ' + t('trips_count')"></span>
+                                <span class="text-gray-400 text-sm" x-text="user.hosted_count + ' ' + t('hosted_count')"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-600 block mb-1" x-text="t('about_me')"></label>
+                            <textarea x-model="profileForm.bio" rows="3" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-sm font-medium text-gray-600 block mb-1" x-text="t('country')"></label>
+                                <select x-model="profileForm.country" @change="profileForm.city=''" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white">
+                                    <option value="" x-text="t('select_country')"></option>
+                                    <template x-for="c in countries" :key="c">
+                                        <option :value="c" x-text="c"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-600 block mb-1" x-text="t('city')"></label>
+                                <select x-model="profileForm.city" :disabled="!profileForm.country" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white disabled:opacity-50">
+                                    <option value="" x-text="t('select_city')"></option>
+                                    <template x-for="c in getCities(profileForm.country)" :key="c">
+                                        <option :value="c" x-text="c"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-600 block mb-1" x-text="t('interests')"></label>
+                            <input x-model="profileForm.interests" :placeholder="t('interests_placeholder')" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        </div>
+                        <!-- Konustugu Diller -->
+                        <div>
+                            <label class="text-sm font-medium text-gray-600 block mb-2">Konustugum Diller</label>
+                            <div class="flex flex-wrap gap-2">
+                                <template x-for="lang in spokenLanguages" :key="lang">
+                                    <button type="button" @click="toggleLang(profileForm.languages, lang)"
+                                        class="px-3 py-1.5 rounded-full text-xs border transition-all"
+                                        :class="profileForm.languages.includes(lang) ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'"
+                                        x-text="lang"></button>
+                                </template>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1" x-show="profileForm.languages.length" x-text="profileForm.languages.join(', ')"></p>
+                        </div>
+
+                        <div class="flex items-center gap-3 p-4 bg-green-50 rounded-xl">
+                            <input x-model="profileForm.is_host" type="checkbox" class="w-5 h-5 text-green-600">
+                            <div>
+                                <span class="font-medium text-gray-800" x-text="t('volunteer_host')"></span>
+                                <p class="text-sm text-gray-500" x-text="t('volunteer_desc')"></p>
+                            </div>
+                        </div>
+                        <div x-show="profileForm.is_host">
+                            <label class="text-sm font-medium text-gray-600 block mb-1" x-text="t('host_desc')"></label>
+                            <textarea x-model="profileForm.host_description" rows="2" :placeholder="t('host_desc_placeholder')" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none"></textarea>
+                        </div>
+                        <!-- Dil / Lehce Secimi -->
+                        <div class="border-t pt-4 mt-4">
+                            <label class="text-sm font-bold text-gray-700 block mb-3">Dil / Lehce</label>
+
+                            <!-- Turk Lehceleri -->
+                            <div class="mb-3">
+                                <p class="text-xs font-semibold text-purple-600 mb-2 uppercase tracking-wide">Turk Lehceleri</p>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <template x-for="(data, code) in turkLehceleri" :key="code">
+                                        <button @click="setLang(code)" class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm border transition-all"
+                                            :class="lang === code ? 'border-purple-500 bg-purple-50 text-purple-700 font-bold' : 'border-gray-200 hover:border-purple-300 text-gray-600'">
+                                            <span x-text="data.flag"></span>
+                                            <span x-text="data.name"></span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Diger Diller -->
+                            <div>
+                                <p class="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Diger Diller</p>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <template x-for="(data, code) in digerDiller" :key="code">
+                                        <button @click="setLang(code)" class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm border transition-all"
+                                            :class="lang === code ? 'border-purple-500 bg-purple-50 text-purple-700 font-bold' : 'border-gray-200 hover:border-purple-300 text-gray-600'">
+                                            <span x-text="data.flag"></span>
+                                            <span x-text="data.name"></span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button @click="updateProfile()" class="w-full py-3 gradient-bg text-white rounded-xl font-bold hover:opacity-90" x-text="t('save')"></button>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+    </div>
+
+    <script src="/static/js/i18n.js"></script>
+    <script src="/static/js/places.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
